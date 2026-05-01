@@ -46,6 +46,8 @@ func New() *Game {
 	}
 
 	g.Reset()
+	g.State = StateIntro
+	g.Elapsed = 0
 	return g
 }
 
@@ -72,6 +74,15 @@ func (g *Game) NextNumber() {
 }
 
 func (g *Game) Update() {
+	if g.State == StateIntro {
+		if rl.GetKeyPressed() != 0 {
+			g.StartTime = time.Now()
+			g.Elapsed = 0
+			g.State = StateQuestion
+		}
+		return
+	}
+
 	if g.State == StatePaused {
 		if rl.IsKeyPressed(rl.KeyP) {
 			g.resume()
@@ -218,6 +229,17 @@ func (g *Game) Draw() {
 	centerY := int32(rl.GetScreenHeight() / 2)
 	padding := int32(20)
 	screenWidth := int32(rl.GetScreenWidth())
+
+	if g.State == StateIntro {
+		ui.DrawCentered("D I V I S I B L E", centerY-130, 50, rl.Black)
+		ui.DrawCentered("How to play", centerY-58, 26, rl.DarkGray)
+		ui.DrawCentered("Y = divisible by 3", centerY-20, 22, rl.Black)
+		ui.DrawCentered("N = not divisible by 3", centerY+10, 22, rl.Black)
+		ui.DrawCentered("If number is not divisible by 3: choose +1 or +2 to make it divisible", centerY+40, 20, rl.DarkGray)
+		ui.DrawCentered("P = pause, R = restart after game over", centerY+68, 20, rl.DarkGray)
+		ui.DrawCentered("Press any key to start", centerY+122, 24, rl.Gray)
+		return
+	}
 
 	// Number (hide when finished)
 	if g.State != StateFinished {

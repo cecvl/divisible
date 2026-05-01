@@ -3,7 +3,8 @@ package game
 type State int
 
 const (
-	StateQuestion State = iota
+	StateIntro State = iota
+	StateQuestion
 	StateBonus
 	StatePaused
 	StateFinished
