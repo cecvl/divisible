@@ -1,6 +1,6 @@
 # Divisible
 
- A small reflex / number game — decide whether a number is divisible by 3.
+ A small number game to decide whether a number is divisible by 3.
 
  Features
 - Play quick rounds against a timer.
