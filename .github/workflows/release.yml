@@ -19,20 +19,37 @@ jobs:
           - goos: linux
             goarch: amd64
             runner: ubuntu-latest
+            ext: ''
+          - goos: linux
+            goarch: arm64
+            runner: ubuntu-latest
+            ext: ''
           - goos: windows
             goarch: amd64
             runner: windows-latest
+            ext: '.exe'
+          - goos: darwin
+            goarch: amd64
+            runner: macos-latest
+            ext: ''
+          - goos: darwin
+            goarch: arm64
+            runner: macos-latest
+            ext: ''
+    
     runs-on: ${{ matrix.runner }}
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5  # Updated to v5
         with:
-          go-version: '1.25'
+          go-version: '1.23'  # Fixed version
+          cache: true
 
-      - name: Install Linux build dependencies
+      - name: Install Linux dependencies
         if: matrix.goos == 'linux'
         run: |
           sudo apt-get update
@@ -45,78 +62,114 @@ jobs:
             libxi-dev \
             libxkbcommon-dev \
             libgl1-mesa-dev \
+            libasound2-dev \
+            libpulse-dev \
             pkg-config
 
-      - name: Set up MSYS2 toolchain
-        if: matrix.goos == 'windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-pkg-config
-
-      - name: Configure Windows compiler
-        if: matrix.goos == 'windows'
-        shell: bash
+      - name: Install macOS dependencies
+        if: matrix.goos == 'darwin'
         run: |
-          echo "CC=x86_64-w64-mingw32-gcc" >> "$GITHUB_ENV"
-          echo "CXX=x86_64-w64-mingw32-g++" >> "$GITHUB_ENV"
+          brew update
+          brew install glfw pkg-config
+
+      - name: Install Windows cross-compiler (Linux)
+        if: matrix.goos == 'windows' && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+          echo "CC=x86_64-w64-mingw32-gcc" >> $GITHUB_ENV
+          echo "CXX=x86_64-w64-mingw32-g++" >> $GITHUB_ENV
+
+      - name: Install Windows dependencies (Native)
+        if: matrix.goos == 'windows' && runner.os == 'Windows'
+        run: |
+          choco install mingw make
+          echo "C:/tools/mingw64/bin" >> $GITHUB_PATH
 
       - name: Build
+        shell: bash
         env:
           CGO_ENABLED: 1
         run: |
           set -euo pipefail
-          uname=$(echo "${{ matrix.goos }}")
-          arch=$(echo "${{ matrix.goarch }}")
-          if [ "${GITHUB_REF_TYPE-}" = "tag" ]; then
-            tag=${GITHUB_REF##*/}
-          elif [ -n "${{ github.event.release.tag_name }}" ]; then
-            tag=${{ github.event.release.tag_name }}
+          
+          # Version detection
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            VERSION=${VERSION#v}
+          elif [[ -n "${{ github.event.release.tag_name }}" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION=${VERSION#v}
           else
-            tag=${GITHUB_SHA}
+            VERSION="dev-${GITHUB_SHA::8}"
           fi
-          outname=divisible_${tag}_${uname}_${arch}
+          
+          # Build binary name
+          BINARY_NAME="divisible_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}${{ matrix.ext }}"
+          
+          echo "Building: $BINARY_NAME"
+          echo "GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}"
+          
           mkdir -p release
-          if [ "${uname}" = "windows" ]; then
-            outname=${outname}.exe
+          
+          # Build
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -v -o "release/${BINARY_NAME}" ./cmd/game
+          
+          # Verify build
+          if [ ! -f "release/${BINARY_NAME}" ]; then
+            echo "❌ Build failed: Binary not created"
+            exit 1
           fi
-          GOOS=${uname} GOARCH=${arch} go build -o release/${outname} ./cmd/game
-          # archive the binary into a predictable tarball for installer
-          tar -C release -czf release/${outname}.tar.gz ${outname}
-          rm -f release/${outname}
-
-      - name: Create Release (if tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        id: create_release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: Automated build assets
-          draft: false
-          prerelease: false
-
-      - name: Upload release assets (if tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          UPLOAD_URL: ${{ steps.create_release.outputs.upload_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          echo "Uploading release assets..."
-          for f in release/*.tar.gz; do
-            echo "Uploading $f"
-            curl -s -X POST \
-              -H "Authorization: token ${GITHUB_TOKEN}" \
-              -H "Content-Type: application/gzip" \
-              --data-binary @"${f}" "${UPLOAD_URL}?name=$(basename ${f})"
-          done
+          
+          # Create checksum
+          cd release
+          if command -v sha256sum &> /dev/null; then
+            sha256sum "${BINARY_NAME}" > "${BINARY_NAME}.sha256"
+          else
+            shasum -a 256 "${BINARY_NAME}" > "${BINARY_NAME}.sha256"
+          fi
+          
+          # Create tarball (optional - keep original binary)
+          tar -czf "${BINARY_NAME}.tar.gz" "${BINARY_NAME}"
+          cd ..
 
       - name: Upload artifacts for debugging
         uses: actions/upload-artifact@v4
         with:
-          name: release-binaries
-          path: release
+          name: divisible-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: release/
+          retention-days: 7
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-assets
+          merge-multiple: true
+      
+      - name: List assets
+        run: |
+          echo "Assets to release:"
+          ls -la all-assets/
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2  # Updated to v2
+        with:
+          files: all-assets/*
+          generate_release_notes: true
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
