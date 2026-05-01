@@ -61,6 +61,14 @@ func (g *Game) Update() {
 		return
 	}
 
+	// Handle restart input when finished
+	if g.State == StateFinished {
+		if rl.IsKeyPressed(rl.KeyR) {
+			g.Reset()
+		}
+		return
+	}
+
 	// Only update elapsed time if game is not finished
 	if g.State != StateFinished {
 		g.Elapsed = time.Since(g.StartTime)
@@ -86,10 +94,6 @@ func (g *Game) Update() {
 		g.handleQuestionInput()
 	case StateBonus:
 		g.handleBonusInput()
-	case StateFinished:
-		if rl.IsKeyPressed(rl.KeyR) {
-			g.Reset()
-		}
 	}
 }
 
