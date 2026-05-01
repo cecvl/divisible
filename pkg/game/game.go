@@ -61,7 +61,10 @@ func (g *Game) Update() {
 		return
 	}
 
-	g.Elapsed = time.Since(g.StartTime)
+	// Only update elapsed time if game is not finished
+	if g.State != StateFinished {
+		g.Elapsed = time.Since(g.StartTime)
+	}
 
 	// If a duration is set, finish when elapsed reaches it
 	if g.Duration > 0 && g.Elapsed >= g.Duration {
@@ -170,19 +173,23 @@ func (g *Game) Draw() {
 	padding := int32(20)
 	screenWidth := int32(rl.GetScreenWidth())
 
-	// Number
-	number := fmt.Sprintf("%d", g.CurrentNumber)
-	ui.DrawCentered(number, centerY-50, 60, rl.Black)
+	// Number (hide when finished)
+	if g.State != StateFinished {
+		number := fmt.Sprintf("%d", g.CurrentNumber)
+		ui.DrawCentered(number, centerY-50, 60, rl.Black)
+	}
 
-	// Timer (show remaining when a duration is set)
-	if g.Duration > 0 {
-		remaining := g.Duration - g.Elapsed
-		if remaining < 0 {
-			remaining = 0
+	// Timer (show remaining when a duration is set, hide when finished)
+	if g.State != StateFinished {
+		if g.Duration > 0 {
+			remaining := g.Duration - g.Elapsed
+			if remaining < 0 {
+				remaining = 0
+			}
+			ui.DrawRightAligned("Time: "+formatTime(remaining), screenWidth-padding, padding, 20, rl.DarkGray)
+		} else {
+			ui.DrawRightAligned("Time: "+formatTime(g.Elapsed), screenWidth-padding, padding, 20, rl.DarkGray)
 		}
-		ui.DrawRightAligned("Time: "+formatTime(remaining), screenWidth-padding, padding, 20, rl.DarkGray)
-	} else {
-		ui.DrawRightAligned("Time: "+formatTime(g.Elapsed), screenWidth-padding, padding, 20, rl.DarkGray)
 	}
 
 	// Score
@@ -205,11 +212,6 @@ func (g *Game) Draw() {
 	case StateFinished:
 		ui.DrawCentered("DONE!", centerY-100, 40, rl.Black)
 		ui.DrawCentered("Final Time: "+formatTime(g.Elapsed), centerY-40, 20, rl.DarkGray)
-
-		if g.BestTime > 0 {
-			ui.DrawCentered("Best: "+formatTime(g.BestTime), centerY, 20, rl.Gray)
-		}
-
 		ui.DrawCentered("Press R to Restart", centerY+60, 20, rl.DarkGray)
 	}
 }
