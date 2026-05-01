@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	rl.InitWindow(800, 450, "Divisible by 3")
+	rl.InitWindow(800, 450, "D I V I S I B L E")
 	defer rl.CloseWindow()
 
 	rl.InitAudioDevice()

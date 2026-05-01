@@ -19,11 +19,13 @@ type Game struct {
 	Rounds      int
 	TotalRounds int
 
-	StartTime time.Time
-	Elapsed   time.Duration
-	BestTime  time.Duration
-	Duration  time.Duration
-	music     rl.Music
+	StartTime  time.Time
+	Elapsed    time.Duration
+	BestTime   time.Duration
+	Duration   time.Duration
+	music      rl.Music
+	musicFiles []string
+	musicIndex int
 }
 
 func New() *Game {
@@ -31,7 +33,7 @@ func New() *Game {
 
 	g := &Game{
 		TotalRounds: 10,
-		Duration:    3 * time.Minute,
+		Duration:    1 * time.Minute,
 	}
 	g.Reset()
 	return g
