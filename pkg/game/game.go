@@ -23,6 +23,7 @@ type Game struct {
 	Elapsed   time.Duration
 	BestTime  time.Duration
 	Duration  time.Duration
+	music     rl.Music
 }
 
 func New() *Game {
@@ -46,6 +47,10 @@ func (g *Game) Reset() {
 	if g.Duration == 0 {
 		g.Duration = 3 * time.Minute
 	}
+	if rl.IsMusicValid(g.music) {
+		rl.StopMusicStream(g.music)
+		rl.PlayMusicStream(g.music)
+	}
 	g.NextNumber()
 }
 
@@ -60,6 +65,8 @@ func (g *Game) Update() {
 		}
 		return
 	}
+
+	g.updateAudio()
 
 	// Handle restart input when finished
 	if g.State == StateFinished {
@@ -76,6 +83,9 @@ func (g *Game) Update() {
 
 	// If a duration is set, finish when elapsed reaches it
 	if g.Duration > 0 && g.Elapsed >= g.Duration {
+		if rl.IsMusicValid(g.music) {
+			rl.StopMusicStream(g.music)
+		}
 		g.State = StateFinished
 
 		if g.BestTime == 0 || g.Elapsed < g.BestTime {
@@ -101,6 +111,9 @@ func (g *Game) pause() {
 	if g.State == StateQuestion || g.State == StateBonus {
 		g.PausedFrom = g.State
 		g.State = StatePaused
+		if rl.IsMusicValid(g.music) {
+			rl.PauseMusicStream(g.music)
+		}
 	}
 }
 
@@ -111,6 +124,9 @@ func (g *Game) resume() {
 
 	g.StartTime = time.Now().Add(-g.Elapsed)
 	g.State = g.PausedFrom
+	if rl.IsMusicValid(g.music) {
+		rl.ResumeMusicStream(g.music)
+	}
 }
 
 func (g *Game) handleQuestionInput() {
