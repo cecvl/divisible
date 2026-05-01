@@ -90,3 +90,11 @@ func (g *Game) nextMusic() {
 	g.musicIndex = (g.musicIndex + 1) % len(g.musicFiles)
 	g.loadMusicAt(g.musicIndex)
 }
+
+func (g *Game) Close() {
+	g.CloseAudio()
+	if g.Store != nil {
+		_ = g.Store.Close()
+		g.Store = nil
+	}
+}

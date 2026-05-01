@@ -26,6 +26,8 @@ type Game struct {
 	music      rl.Music
 	musicFiles []string
 	musicIndex int
+	Store      *Store
+	ScoreSaved bool
 }
 
 func New() *Game {
@@ -33,8 +35,16 @@ func New() *Game {
 
 	g := &Game{
 		TotalRounds: 10,
-		Duration:    1 * time.Minute,
+		Duration:    2 * time.Minute,
 	}
+	// initialize DB (scores.db in cwd)
+	s, err := NewStore("scores.db")
+	if err != nil {
+		fmt.Println("warning: could not initialize score DB:", err)
+	} else {
+		g.Store = s
+	}
+
 	g.Reset()
 	return g
 }
@@ -46,6 +56,7 @@ func (g *Game) Reset() {
 	g.PausedFrom = StateQuestion
 	g.StartTime = time.Now()
 	g.Elapsed = 0
+	g.ScoreSaved = false
 	if g.Duration == 0 {
 		g.Duration = 3 * time.Minute
 	}
@@ -93,6 +104,8 @@ func (g *Game) Update() {
 		if g.BestTime == 0 || g.Elapsed < g.BestTime {
 			g.BestTime = g.Elapsed
 		}
+		// persist final score once
+		g.saveFinalScore()
 		return
 	}
 
@@ -179,6 +192,17 @@ func (g *Game) nextRound() {
 
 	g.NextNumber()
 	g.State = StateQuestion
+}
+
+func (g *Game) saveFinalScore() {
+	if g.Store == nil || g.ScoreSaved {
+		return
+	}
+	if err := g.Store.SaveScore(g.Score); err != nil {
+		fmt.Println("error saving score:", err)
+	} else {
+		g.ScoreSaved = true
+	}
 }
 
 func formatTime(d time.Duration) string {

@@ -17,7 +17,7 @@ func main() {
 
 	g := game.New()
 	g.InitAudio()
-	defer g.CloseAudio()
+	defer g.Close()
 
 	for !rl.WindowShouldClose() {
 		g.Update()
