@@ -3,7 +3,7 @@ package main
 import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
-	"games/example.com/pkg/game"
+	"github.com/cecvl/divisible/pkg/game"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"games/example.com/pkg/ui"
+	"github.com/cecvl/divisible/pkg/ui"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )

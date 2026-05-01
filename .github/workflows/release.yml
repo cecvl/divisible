@@ -1,0 +1,84 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.25'
+
+      - name: Build
+        env:
+          CGO_ENABLED: 1
+        run: |
+          set -e
+          uname=$(echo "${{ matrix.goos }}")
+          arch=$(echo "${{ matrix.goarch }}")
+          tag=${GITHUB_REF##*/}
+          if [ "${GITHUB_REF_TYPE-}" = "tag" ]; then
+            tag=${GITHUB_REF##*/}
+          elif [ -n "${{ github.event.release.tag_name }}" ]; then
+            tag=${{ github.event.release.tag_name }}
+          else
+            tag=${GITHUB_SHA}
+          fi
+          outname=divisible_${tag}_${uname}_${arch}
+          if [ "$${uname}" = "windows" ]; then
+            outname=$${outname}.exe
+          fi
+          mkdir -p release
+          GOOS=$${uname} GOARCH=$${arch} go build -o release/$${outname} ./cmd/game
+
+      - name: Create Release (if tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: Automated build assets
+          draft: false
+          prerelease: false
+
+      - name: Upload release assets (if tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release
+          asset_name: release
+          asset_content_type: application/x-gtar
+
+      - name: Upload artifacts for debugging
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-binaries
+          path: release
