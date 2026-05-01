@@ -233,7 +233,7 @@ func (g *Game) Draw() {
 
 	case StateFinished:
 		ui.DrawCentered("DONE!", centerY-100, 40, rl.Black)
-		ui.DrawCentered("Final Time: "+formatTime(g.Elapsed), centerY-40, 20, rl.DarkGray)
+		ui.DrawCentered(fmt.Sprintf("Final Score: %d", g.Score), centerY-40, 20, rl.DarkGray)
 		ui.DrawCentered("Press R to Restart", centerY+60, 20, rl.DarkGray)
 	}
 }
