@@ -44,35 +44,64 @@ case "$ARCH" in
   *) echo "Unsupported ARCH: $ARCH" >&2; exit 1 ;;
 esac
 
+# Remove 'v' prefix from version for filename (matches releases.yml)
+VERSION_CLEAN="${VERSION#v}"
+
+# Try to download .tar.gz archive first
 EXT="tar.gz"
-ASSET_NAME="${BIN_NAME}_${VERSION}_${GOOS}_${GOARCH}.${EXT}"
+ASSET_NAME="${BIN_NAME}_${VERSION_CLEAN}_${GOOS}_${GOARCH}.${EXT}"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET_NAME}"
 
 echo "Downloading ${ASSET_NAME} from ${DOWNLOAD_URL} ..."
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-if ! curl -fL -o "$TMPDIR/${ASSET_NAME}" "$DOWNLOAD_URL"; then
-  echo "Download failed: ${DOWNLOAD_URL}" >&2
-  echo "Check that the release exists and that assets are named: ${ASSET_NAME}" >&2
-  exit 1
-fi
-
-mkdir -p "$TMPDIR/extracted"
-if [ "${EXT}" = "zip" ]; then
-  unzip -q "$TMPDIR/${ASSET_NAME}" -d "$TMPDIR/extracted"
+# Try archive download
+if curl -fL -o "$TMPDIR/${ASSET_NAME}" "$DOWNLOAD_URL"; then
+  echo "✓ Archive downloaded"
+  
+  mkdir -p "$TMPDIR/extracted"
+  if [ "${EXT}" = "zip" ]; then
+    unzip -q "$TMPDIR/${ASSET_NAME}" -d "$TMPDIR/extracted"
+  else
+    tar -xzf "$TMPDIR/${ASSET_NAME}" -C "$TMPDIR/extracted"
+  fi
+  
+  # Find binary in extracted files
+  BIN_PATH=$(find "$TMPDIR/extracted" -type f -name "${BIN_NAME}*" -print -quit)
+  
 else
-  tar -xzf "$TMPDIR/${ASSET_NAME}" -C "$TMPDIR/extracted"
+  echo "Archive not found, trying raw binary..."
+  
+  # Fallback to raw binary (no archive)
+  BINARY_NAME="${BIN_NAME}_${VERSION_CLEAN}_${GOOS}_${GOARCH}"
+  if [ "$GOOS" = "windows" ]; then
+    BINARY_NAME="${BINARY_NAME}.exe"
+  fi
+  
+  DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}"
+  
+  if ! curl -fL -o "$TMPDIR/${BIN_NAME}" "$DOWNLOAD_URL"; then
+    echo "❌ Download failed: ${DOWNLOAD_URL}" >&2
+    echo ""
+    echo "Available assets for ${VERSION}:" >&2
+    curl -s "https://api.github.com/repos/${REPO}/releases/tags/${VERSION}" | grep "browser_download_url" >&2
+    exit 1
+  fi
+  
+  BIN_PATH="$TMPDIR/${BIN_NAME}"
+  echo "✓ Raw binary downloaded"
 fi
 
-BIN_PATH="$(find "$TMPDIR/extracted" -type f -name ${BIN_NAME}* -print -quit)"
 if [ -z "$BIN_PATH" ]; then
-  echo "Could not find binary in archive" >&2
-  ls -la "$TMPDIR/extracted" >&2
+  echo "❌ Could not find binary in download" >&2
+  ls -la "$TMPDIR" >&2
   exit 1
 fi
 
+# Install binary
 mkdir -p "$INSTALL_DIR"
+
 if [ -w "$INSTALL_DIR" ]; then
   cp "$BIN_PATH" "$INSTALL_DIR/${BIN_NAME}"
 else
@@ -81,4 +110,13 @@ else
 fi
 chmod +x "$INSTALL_DIR/${BIN_NAME}"
 
-echo "Installed ${BIN_NAME} ${VERSION} to ${INSTALL_DIR}/${BIN_NAME}"
+echo ""
+echo "✅ Installed ${BIN_NAME} ${VERSION} to ${INSTALL_DIR}/${BIN_NAME}"
+echo ""
+echo "To play: ${BIN_NAME}"
+
+# Optional: Show help if --help flag exists
+if "$INSTALL_DIR/${BIN_NAME}" --help &>/dev/null; then
+  echo ""
+  "$INSTALL_DIR/${BIN_NAME}" --help | head -5
+fi
