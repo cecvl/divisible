@@ -22,6 +22,7 @@ type Game struct {
 	StartTime time.Time
 	Elapsed   time.Duration
 	BestTime  time.Duration
+	Duration  time.Duration
 }
 
 func New() *Game {
@@ -29,6 +30,7 @@ func New() *Game {
 
 	g := &Game{
 		TotalRounds: 10,
+		Duration:    3 * time.Minute,
 	}
 	g.Reset()
 	return g
@@ -41,6 +43,9 @@ func (g *Game) Reset() {
 	g.PausedFrom = StateQuestion
 	g.StartTime = time.Now()
 	g.Elapsed = 0
+	if g.Duration == 0 {
+		g.Duration = 3 * time.Minute
+	}
 	g.NextNumber()
 }
 
@@ -57,6 +62,16 @@ func (g *Game) Update() {
 	}
 
 	g.Elapsed = time.Since(g.StartTime)
+
+	// If a duration is set, finish when elapsed reaches it
+	if g.Duration > 0 && g.Elapsed >= g.Duration {
+		g.State = StateFinished
+
+		if g.BestTime == 0 || g.Elapsed < g.BestTime {
+			g.BestTime = g.Elapsed
+		}
+		return
+	}
 
 	if rl.IsKeyPressed(rl.KeyP) {
 		g.pause()
@@ -137,15 +152,6 @@ func (g *Game) checkBonus(choice int) {
 func (g *Game) nextRound() {
 	g.Rounds++
 
-	if g.Rounds >= g.TotalRounds {
-		g.State = StateFinished
-
-		if g.BestTime == 0 || g.Elapsed < g.BestTime {
-			g.BestTime = g.Elapsed
-		}
-		return
-	}
-
 	g.NextNumber()
 	g.State = StateQuestion
 }
@@ -168,8 +174,16 @@ func (g *Game) Draw() {
 	number := fmt.Sprintf("%d", g.CurrentNumber)
 	ui.DrawCentered(number, centerY-50, 60, rl.Black)
 
-	// Timer
-	ui.DrawRightAligned("Time: "+formatTime(g.Elapsed), screenWidth-padding, padding, 20, rl.DarkGray)
+	// Timer (show remaining when a duration is set)
+	if g.Duration > 0 {
+		remaining := g.Duration - g.Elapsed
+		if remaining < 0 {
+			remaining = 0
+		}
+		ui.DrawRightAligned("Time: "+formatTime(remaining), screenWidth-padding, padding, 20, rl.DarkGray)
+	} else {
+		ui.DrawRightAligned("Time: "+formatTime(g.Elapsed), screenWidth-padding, padding, 20, rl.DarkGray)
+	}
 
 	// Score
 	ui.DrawAt(fmt.Sprintf("Score: %d", g.Score), padding, padding, 20, rl.Gray)
