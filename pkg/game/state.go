@@ -5,5 +5,6 @@ type State int
 const (
 	StateQuestion State = iota
 	StateBonus
+	StatePaused
 	StateFinished
 )

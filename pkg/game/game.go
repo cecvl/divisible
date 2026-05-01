@@ -12,6 +12,7 @@ import (
 
 type Game struct {
 	State         State
+	PausedFrom    State
 	CurrentNumber int
 
 	Score       int
@@ -37,7 +38,9 @@ func (g *Game) Reset() {
 	g.Score = 0
 	g.Rounds = 0
 	g.State = StateQuestion
+	g.PausedFrom = StateQuestion
 	g.StartTime = time.Now()
+	g.Elapsed = 0
 	g.NextNumber()
 }
 
@@ -46,7 +49,19 @@ func (g *Game) NextNumber() {
 }
 
 func (g *Game) Update() {
+	if g.State == StatePaused {
+		if rl.IsKeyPressed(rl.KeyP) {
+			g.resume()
+		}
+		return
+	}
+
 	g.Elapsed = time.Since(g.StartTime)
+
+	if rl.IsKeyPressed(rl.KeyP) {
+		g.pause()
+		return
+	}
 
 	switch g.State {
 	case StateQuestion:
@@ -58,6 +73,22 @@ func (g *Game) Update() {
 			g.Reset()
 		}
 	}
+}
+
+func (g *Game) pause() {
+	if g.State == StateQuestion || g.State == StateBonus {
+		g.PausedFrom = g.State
+		g.State = StatePaused
+	}
+}
+
+func (g *Game) resume() {
+	if g.State != StatePaused {
+		return
+	}
+
+	g.StartTime = time.Now().Add(-g.Elapsed)
+	g.State = g.PausedFrom
 }
 
 func (g *Game) handleQuestionInput() {
@@ -130,23 +161,32 @@ func formatTime(d time.Duration) string {
 
 func (g *Game) Draw() {
 	centerY := int32(rl.GetScreenHeight() / 2)
+	padding := int32(20)
+	screenWidth := int32(rl.GetScreenWidth())
 
 	// Number
 	number := fmt.Sprintf("%d", g.CurrentNumber)
 	ui.DrawCentered(number, centerY-50, 60, rl.Black)
 
 	// Timer
-	ui.DrawCentered("Time: "+formatTime(g.Elapsed), 20, 20, rl.DarkGray)
+	ui.DrawRightAligned("Time: "+formatTime(g.Elapsed), screenWidth-padding, padding, 20, rl.DarkGray)
 
 	// Score
-	ui.DrawCentered(fmt.Sprintf("Score: %d", g.Score), 50, 20, rl.Gray)
+	ui.DrawAt(fmt.Sprintf("Score: %d", g.Score), padding, padding, 20, rl.Gray)
 
 	switch g.State {
 	case StateQuestion:
 		ui.DrawCentered("Y / N", centerY+40, 20, rl.DarkGray)
+		ui.DrawCentered("Press P to Pause", centerY+74, 18, rl.Gray)
 
 	case StateBonus:
 		ui.DrawCentered("+1 or +2", centerY+40, 20, rl.DarkGray)
+		ui.DrawCentered("Press P to Pause", centerY+74, 18, rl.Gray)
+
+	case StatePaused:
+		rl.DrawRectangle(0, 0, int32(rl.GetScreenWidth()), int32(rl.GetScreenHeight()), rl.Fade(rl.Black, 0.4))
+		ui.DrawCentered("PAUSED", centerY-20, 40, rl.White)
+		ui.DrawCentered("Press P to Resume", centerY+25, 20, rl.LightGray)
 
 	case StateFinished:
 		ui.DrawCentered("DONE!", centerY-100, 40, rl.Black)

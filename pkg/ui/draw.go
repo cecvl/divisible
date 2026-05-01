@@ -10,3 +10,14 @@ func DrawCentered(text string, y int32, size int32, color rl.Color) {
 
 	rl.DrawText(text, x, y, size, color)
 }
+
+func DrawAt(text string, x int32, y int32, size int32, color rl.Color) {
+	rl.DrawText(text, x, y, size, color)
+}
+
+func DrawRightAligned(text string, rightX int32, y int32, size int32, color rl.Color) {
+	w := int32(rl.MeasureText(text, int32(size)))
+	x := rightX - w
+
+	rl.DrawText(text, x, y, size, color)
+}
