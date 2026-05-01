@@ -52,7 +52,11 @@ echo "Downloading ${ASSET_NAME} from ${DOWNLOAD_URL} ..."
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-curl -L -o "$TMPDIR/${ASSET_NAME}" "$DOWNLOAD_URL"
+if ! curl -fL -o "$TMPDIR/${ASSET_NAME}" "$DOWNLOAD_URL"; then
+  echo "Download failed: ${DOWNLOAD_URL}" >&2
+  echo "Check that the release exists and that assets are named: ${ASSET_NAME}" >&2
+  exit 1
+fi
 
 mkdir -p "$TMPDIR/extracted"
 if [ "${EXT}" = "zip" ]; then

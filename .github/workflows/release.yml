@@ -39,10 +39,9 @@ jobs:
         env:
           CGO_ENABLED: 1
         run: |
-          set -e
+          set -euo pipefail
           uname=$(echo "${{ matrix.goos }}")
           arch=$(echo "${{ matrix.goarch }}")
-          tag=${GITHUB_REF##*/}
           if [ "${GITHUB_REF_TYPE-}" = "tag" ]; then
             tag=${GITHUB_REF##*/}
           elif [ -n "${{ github.event.release.tag_name }}" ]; then
@@ -51,11 +50,14 @@ jobs:
             tag=${GITHUB_SHA}
           fi
           outname=divisible_${tag}_${uname}_${arch}
-          if [ "$${uname}" = "windows" ]; then
-            outname=$${outname}.exe
-          fi
           mkdir -p release
-          GOOS=$${uname} GOARCH=$${arch} go build -o release/$${outname} ./cmd/game
+          if [ "${uname}" = "windows" ]; then
+            outname=${outname}.exe
+          fi
+          GOOS=${uname} GOARCH=${arch} go build -o release/${outname} ./cmd/game
+          # archive the binary into a predictable tarball for installer
+          tar -C release -czf release/${outname}.tar.gz ${outname}
+          rm -f release/${outname}
 
       - name: Create Release (if tag)
         if: startsWith(github.ref, 'refs/tags/')
@@ -70,12 +72,19 @@ jobs:
 
       - name: Upload release assets (if tag)
         if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release
-          asset_name: release
-          asset_content_type: application/x-gtar
+        env:
+          UPLOAD_URL: ${{ steps.create_release.outputs.upload_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Uploading release assets..."
+          for f in release/*.tar.gz; do
+            echo "Uploading $f"
+            curl -s -X POST \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/gzip" \
+              --data-binary @"${f}" "${UPLOAD_URL}?name=$(basename ${f})"
+          done
 
       - name: Upload artifacts for debugging
         uses: actions/upload-artifact@v4
