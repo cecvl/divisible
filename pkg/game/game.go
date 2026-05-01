@@ -232,12 +232,12 @@ func (g *Game) Draw() {
 
 	if g.State == StateIntro {
 		ui.DrawCentered("D I V I S I B L E", centerY-130, 50, rl.Black)
-		ui.DrawCentered("How to play", centerY-58, 26, rl.DarkGray)
+		ui.DrawCentered("How to play", centerY-58, 26, rl.Red)
 		ui.DrawCentered("Y = divisible by 3", centerY-20, 22, rl.Black)
 		ui.DrawCentered("N = not divisible by 3", centerY+10, 22, rl.Black)
 		ui.DrawCentered("If number is not divisible by 3: choose +1 or +2 to make it divisible", centerY+40, 20, rl.DarkGray)
 		ui.DrawCentered("P = pause, R = restart after game over", centerY+68, 20, rl.DarkGray)
-		ui.DrawCentered("Press any key to start", centerY+122, 24, rl.Gray)
+		ui.DrawCentered("Press any key to start", centerY+122, 24, rl.Orange)
 		return
 	}
 
@@ -279,7 +279,7 @@ func (g *Game) Draw() {
 
 	case StateFinished:
 		ui.DrawCentered("DONE!", centerY-100, 40, rl.Black)
-		ui.DrawCentered(fmt.Sprintf("Final Score: %d", g.Score), centerY-40, 20, rl.DarkGray)
+		ui.DrawCentered(fmt.Sprintf("Final Score: %d", g.Score), centerY-40, 20, rl.Red)
 		ui.DrawCentered("Press R to Restart", centerY+60, 20, rl.DarkGray)
 	}
 }
