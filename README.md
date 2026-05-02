@@ -12,13 +12,13 @@
 - Install from releases (recommended):
 
    ```bash
-   curl -sSL https://raw.githubusercontent.com/cecvl/divisible/main/install.sh | bash -s --
+   curl -sSL https://raw.githubusercontent.com/cecvl/divisible/master/install.sh | bash -s --
    ```
 
 - Install a specific release tag:
 
    ```bash
-   curl -sSL https://raw.githubusercontent.com/cecvl/divisible/main/install.sh | bash -s -- v0.1.0
+   curl -sSL https://raw.githubusercontent.com/cecvl/divisible/master/install.sh | bash -s -- v0.1.0
    ```
 
  Build from source
